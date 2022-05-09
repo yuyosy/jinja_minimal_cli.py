@@ -7,7 +7,7 @@ from typing import IO, Any, Dict, List, Tuple
 from ruamel.yaml import YAML
 
 
-class Formatter(metaclass=ABCMeta):
+class BaseFormatter(metaclass=ABCMeta):
 
     @property
     @abstractmethod
@@ -23,7 +23,7 @@ class Formatter(metaclass=ABCMeta):
         pass
 
 
-class CsvFormatter(Formatter):
+class CsvFormatter(BaseFormatter):
     @property
     def extensions(self) -> Tuple[str, ...]:
         return ('.csv',)
@@ -32,7 +32,9 @@ class CsvFormatter(Formatter):
         reader = csv.DictReader(fp, delimiter=delimiter)
         return reader
 
-    def dump(self, rows: Any, fp: IO, *, delimiter: str = ',', sort_keys: bool = False, listup: bool = False, lineterminator: str = '\n', quoting: Any = csv.QUOTE_ALL, extrasaction: str = 'ignore') -> Any:
+    def dump(self, rows: Any, fp: IO, *,
+             sort_keys: bool = False, listup: bool = False,
+             delimiter: str = ',', lineterminator: str = '\n', quoting: Any = csv.QUOTE_ALL, extrasaction: str = 'ignore') -> Any:
         if not rows:
             return
         if hasattr(rows, 'keys') or hasattr(rows, 'join'):
@@ -59,7 +61,7 @@ class CsvFormatter(Formatter):
         writer.writerows(itr)
 
 
-class JsonFomatter(Formatter):
+class JsonFomatter(BaseFormatter):
     @property
     def extensions(self) -> Tuple[str, ...]:
         return ('.json', '.js')
@@ -71,7 +73,7 @@ class JsonFomatter(Formatter):
         return json.dump(data, fp, ensure_ascii=ensure_ascii, indent=indent, default=default, sort_keys=sort_keys,)
 
 
-class YamlFomatter(Formatter):
+class YamlFomatter(BaseFormatter):
     def __init__(self) -> None:
         self.yaml = YAML(typ='safe')
         super().__init__()
@@ -88,7 +90,7 @@ class YamlFomatter(Formatter):
         return self.yaml.dump(data, fp)
 
 
-class RawTextFomatter(Formatter):
+class RawTextFomatter(BaseFormatter):
     @property
     def extensions(self) -> Tuple[str, ...]:
         return ('.txt',)
@@ -100,9 +102,9 @@ class RawTextFomatter(Formatter):
         return fp.write(data)
 
 
-class Loader():
+class Dispatcher():
     def __init__(self) -> None:
-        self._formatters: Dict[str, Formatter] = {
+        self._formatters: Dict[str, BaseFormatter] = {
             'yaml': YamlFomatter(),
             'json': JsonFomatter(),
             'csv': CsvFormatter(),
