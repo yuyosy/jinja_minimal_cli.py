@@ -2,7 +2,9 @@
 import csv
 import json
 from abc import ABCMeta, abstractmethod
-from typing import IO, Any, Dict, List, Tuple
+from io import TextIOWrapper
+from pathlib import Path
+from typing import IO, Any, Dict, List, Tuple, Union
 
 from ruamel.yaml import YAML
 
@@ -123,3 +125,40 @@ class Dispatcher():
 
     def has_extension(self, ext: str) -> bool:
         return ext in self.extensions
+
+    def get_format_type(self, ext: str) -> Union[str, None]:
+        return self.formatter_map.get(ext, None)
+
+    def get_formatter(self, name: str) -> BaseFormatter:
+        return self._formatters[name]
+
+    def get_formatter_from_exts(self, ext: str) -> BaseFormatter:
+        name = self.formatter_map.get(ext, 'raw')
+        return self.get_formatter(name)
+
+    def loadfile(self, fp: Union[IO, Path, str], *, format: Union[str, None] = None, encoding: str = 'utf-8') -> Any:
+        if format is None:
+            if isinstance(fp, str):
+                format = self.get_format_type(self._suffix(fp)) or 'raw'
+            elif isinstance(fp, TextIOWrapper):
+                format = self.get_format_type(self._suffix(fp.name)) or 'raw'
+            elif isinstance(fp, Path):
+                format = self.get_format_type(fp.suffix) or 'raw'
+            else:
+                format = 'raw'
+
+        formatter = self.get_formatter(format)
+        if isinstance(fp, str):
+            with open(fp, mode='r', encoding=encoding) as f:
+                fp = f
+        elif isinstance(fp, Path):
+            with fp.open('r', encoding=encoding) as f:
+                fp = f
+        return formatter.load(fp)
+
+    def _suffix(self, path: str) -> str:
+        i = path.rfind('.')
+        if 0 < i < len(path) - 1:
+            return path[i:]
+        else:
+            return ''
